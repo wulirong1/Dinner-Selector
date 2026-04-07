@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, FlatList, Keyboard, PanResponder, SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import * as Location from 'expo-location';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { GOOGLE_PLACES_API_KEY } from '@env';
 
-const GOOGLE_PLACES_API_KEY = '';
 const GOOGLE_PLACES_NEARBY_URL = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json';
 const GOOGLE_PLACES_DETAILS_URL = 'https://maps.googleapis.com/maps/api/place/details/json';
 const MIN_RADIUS = 200;
