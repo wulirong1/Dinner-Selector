@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "dinner",
+    "slug": "dinner",
+    "version": "1.0.0",
+    "newArchEnabled": false,  
+    "scheme": "dinner",
+    "plugins": [
+      "expo-router"
+    ]
+  }
+}
