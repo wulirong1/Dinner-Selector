@@ -3,7 +3,7 @@ import { ActivityIndicator, Animated, FlatList, Keyboard, PanResponder, SafeArea
 import * as Location from 'expo-location';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
-const GOOGLE_PLACES_API_KEY = 'AIzaSyAgV1Fm_2FbfAmlPLWEaE9NacS1reKb64w';
+const GOOGLE_PLACES_API_KEY = '';
 const GOOGLE_PLACES_NEARBY_URL = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json';
 const GOOGLE_PLACES_DETAILS_URL = 'https://maps.googleapis.com/maps/api/place/details/json';
 const MIN_RADIUS = 200;
