@@ -1,9 +1,11 @@
-import { View, StyleSheet, TouchableOpacity, Text,Vibration } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Vibration, Animated } from 'react-native';
 import * as Location from 'expo-location';
 import { useEffect, useState } from 'react';
 import MapView, { Marker, Circle } from 'react-native-maps';
 import Slider from '@react-native-community/slider';
+import Svg, { Circle as SvgCircle } from 'react-native-svg';
 
+const AnimatedCircle = Animated.createAnimatedComponent(SvgCircle);
 export default function App() {
 
   const [location, setLocation] = useState(null);
@@ -11,6 +13,8 @@ export default function App() {
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [radius, setRadius] = useState(500); // 預設500m
   const [isPicking, setIsPicking] = useState(false);
+  const progress = useState(new Animated.Value(0))[0];
+  const [isHolding, setIsHolding] = useState(false);
 
   const [region, setRegion] = useState({
     latitude: 25.033,
@@ -63,7 +67,7 @@ export default function App() {
       const randomRestaurant = restaurants[index];
 
       setSelectedRestaurant(randomRestaurant);
-  
+
 
       count++;
 
@@ -94,7 +98,19 @@ export default function App() {
 
     run();
   };
+  const handlePick = async () => {
+    if (!location) return;
 
+    await fetchRestaurants(location.latitude, location.longitude);
+    pickRandom();
+  };
+
+  const stopHolding = () => {
+  setIsHolding(false);
+
+  // ⭐ 停止動畫（如果有需要）
+  progress.setValue(0);
+};
   return (
     <View style={{ flex: 1 }}>
       <MapView
@@ -135,21 +151,64 @@ export default function App() {
         />
 
       </View>
-      <TouchableOpacity
-        disabled={isPicking}
-        onPress={async () => {
-          if (!location) return;
+      <View style={styles.progressWrapper}>
 
-          // ⭐ 先抓資料（但不等）
-          fetchRestaurants(location.latitude, location.longitude);
+        <Svg width={180} height={180}>
+          <Circle
+            cx="90"
+            cy="90"
+            r="80"
+            stroke="#ccc"
+            strokeWidth="6"
+            fill="none"
+          />
 
-          // ⭐ 直接開始動畫
-          pickRandom();
-        }}
-        style={styles.button}
-      >
-        <Text style={styles.buttonText}>抽晚餐</Text>
-      </TouchableOpacity>
+          <AnimatedCircle
+            cx="90"
+            cy="90"
+            r="80"
+            rotation="-90"
+            origin="90,90"
+            stroke="#8FAE9D"
+            strokeWidth="6"
+            fill="none"
+            strokeDasharray={2 * Math.PI * 80}
+            strokeDashoffset={progress.interpolate({
+              inputRange: [0, 1],
+              outputRange: [2 * Math.PI * 80, 0],
+            })}
+          />
+        </Svg>
+
+        <TouchableOpacity
+          onPressIn={() => {
+            if (isPicking) return;
+
+            setIsHolding(true);
+
+            Animated.timing(progress, {
+              toValue: 1,
+              duration: 3000,
+              useNativeDriver: false,
+            }).start(({ finished }) => {
+              if (finished) {
+                handlePick();   // ⭐ 先開始閃
+                stopHolding();  // ⭐ 再重置
+              }
+            });
+          }}
+          onPressOut={() => {
+            setIsHolding(false);
+
+            // ⭐ 放開就取消
+            progress.setValue(0);
+          }}
+
+          style={styles.button}
+        >
+          <Text style={styles.buttonText}>抽晚餐</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -200,6 +259,29 @@ const styles = StyleSheet.create({
       { translateY: 130 },
       { translateX: -100 },
     ],
+  },
+
+  progressWrapper: {
+    position: 'absolute',
+    bottom: 110,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  button: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: '#8FAE9D',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  buttonText: {
+    color: '#fff',
+    fontSize: 18,
   },
 
 
