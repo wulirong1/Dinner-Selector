@@ -75,7 +75,7 @@ export default function App() {
       delay += 30;
 
       // ⭐ 大約跑 12 次
-      if (count < 12) {
+      if (count < 18) {
         setTimeout(run, delay);
       } else {
         // ⭐ 最終結果
@@ -106,11 +106,11 @@ export default function App() {
   };
 
   const stopHolding = () => {
-  setIsHolding(false);
+    setIsHolding(false);
 
-  // ⭐ 停止動畫（如果有需要）
-  progress.setValue(0);
-};
+    // ⭐ 停止動畫（如果有需要）
+    progress.setValue(0);
+  };
   return (
     <View style={{ flex: 1 }}>
       <MapView
@@ -188,21 +188,17 @@ export default function App() {
 
             Animated.timing(progress, {
               toValue: 1,
-              duration: 3000,
+              duration: 2000,
               useNativeDriver: false,
             }).start(({ finished }) => {
               if (finished) {
-                handlePick();   // ⭐ 先開始閃
-                stopHolding();  // ⭐ 再重置
+                handlePick();
+                stopHolding();
               }
             });
           }}
-          onPressOut={() => {
-            setIsHolding(false);
 
-            // ⭐ 放開就取消
-            progress.setValue(0);
-          }}
+          onPressOut={stopHolding}
 
           style={styles.button}
         >
@@ -210,6 +206,8 @@ export default function App() {
         </TouchableOpacity>
       </View>
     </View>
+
+
   );
 }
 
@@ -222,22 +220,8 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
 
-  button: {
-    position: 'absolute',
-    bottom: 120,
-    alignSelf: 'center',
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: '#8FAE9D',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
 
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-  },
+
 
   sliderContainer: {
     position: 'absolute',
@@ -262,27 +246,46 @@ const styles = StyleSheet.create({
   },
 
   progressWrapper: {
-    position: 'absolute',
-    bottom: 110,
-    alignSelf: 'center',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  position: 'absolute',
+  bottom: 110,
+  alignSelf: 'center',
+  justifyContent: 'center',
+  alignItems: 'center',
+},
 
-  button: {
-    position: 'absolute',
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: '#8FAE9D',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+progressSvg: {
+  position: 'absolute', // ⭐ 關鍵！！
+},
 
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-  },
+buttonWrapper: {
+  justifyContent: 'center',
+  alignItems: 'center',
+},
 
+buttonBackground: {
+  position: 'absolute', // ⭐ 一定要有！
+
+  width: 200,
+  height: 200,
+  borderRadius: 100,
+
+  backgroundColor: 'rgba(143,174,157,0.3)', // 建議0.3比較好看
+},
+
+button: {
+  width: 160,
+  height: 160,
+  borderRadius: 80,
+
+  backgroundColor: '#8FAE9D',
+
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+
+buttonText: {
+  color: '#fff',
+  fontSize: 18,
+},
 
 });
