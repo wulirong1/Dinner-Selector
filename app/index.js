@@ -48,54 +48,44 @@ export default function App() {
   }, []);
 
 
-  const fetchRestaurants = async (lat, lng) => {
-    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=restaurant&opennow=true&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`;
+const fetchRestaurants = async (lat, lng) => {
+  const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=restaurant&opennow=true&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`;
 
-    const res = await fetch(url);
-    const data = await res.json();
+  const res = await fetch(url);
+  const data = await res.json();
 
-    setRestaurants(data.results);
+  return data.results; // ⭐ 回傳！！
+};
+
+const pickRandom = (data) => {
+  if (!data || data.length === 0) return;
+
+  let count = 0;
+  let delay = 80;
+
+  const run = () => {
+    const index = Math.floor(Math.random() * data.length);
+    const randomRestaurant = data[index];
+
+    setSelectedRestaurant(randomRestaurant);
+
+    count++;
+    delay += 30;
+
+    if (count < 18) {
+      setTimeout(run, delay);
+    } else {
+      const finalIndex = Math.floor(Math.random() * data.length);
+      const final = data[finalIndex];
+
+      setSelectedRestaurant(final);
+      setFinalRestaurant(final);
+    }
   };
 
-  const pickRandom = () => {
-    if (restaurants.length === 0) return;
+  run();
+};
 
-    setIsPicking(false);
-
-    let count = 0;
-    let delay = 80; // ⭐ 一開始很快
-
-    const run = () => {
-      const index = Math.floor(Math.random() * restaurants.length);
-      const randomRestaurant = restaurants[index];
-
-      // ⭐ 這個只用來動畫（地圖 marker）
-      setSelectedRestaurant(randomRestaurant);
-
-      count++;
-      delay += 30;
-
-      if (count < 18) {
-        setTimeout(run, delay);
-      } else {
-        const finalIndex = Math.floor(Math.random() * restaurants.length);
-        const final = restaurants[finalIndex];
-
-        // ⭐ 最終結果
-        setSelectedRestaurant(final); // 地圖用
-        setFinalRestaurant(final);    // ⭐ 卡片用！！！
-
-        setRegion({
-          latitude: final.geometry.location.lat,
-          longitude: final.geometry.location.lng,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        });
-      }
-    };
-
-    run();
-  };
   const recenterMap = () => {
     if (!location || !mapRef.current) return;
 
@@ -108,12 +98,18 @@ export default function App() {
   };
 
 
-  const handlePick = async () => {
-    if (!location) return;
+ const handlePick = async () => {
+  if (!location) return;
 
-    await fetchRestaurants(location.latitude, location.longitude);
-    pickRandom();
-  };
+  const results = await fetchRestaurants(
+    location.latitude,
+    location.longitude
+  );
+
+  setRestaurants(results); // optional（給地圖用）
+
+  pickRandom(results); // ⭐ 直接傳進去
+};
 
   const stopHolding = () => {
     setIsHolding(false);
