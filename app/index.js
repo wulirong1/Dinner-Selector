@@ -4,10 +4,11 @@ import { useEffect, useState, useRef } from 'react';
 import MapView, { Marker, Circle } from 'react-native-maps';
 import Slider from '@react-native-community/slider';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
+import Card from './Card';
 
 const AnimatedCircle = Animated.createAnimatedComponent(SvgCircle);
 export default function App() {
-
+  const [finalRestaurant, setFinalRestaurant] = useState(null);
   const [location, setLocation] = useState(null);
   const [restaurants, setRestaurants] = useState([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
@@ -68,30 +69,25 @@ export default function App() {
       const index = Math.floor(Math.random() * restaurants.length);
       const randomRestaurant = restaurants[index];
 
+      // ⭐ 這個只用來動畫（地圖 marker）
       setSelectedRestaurant(randomRestaurant);
 
-
       count++;
-
-      // ⭐ 每次變慢
       delay += 30;
 
-      // ⭐ 大約跑 12 次
       if (count < 18) {
         setTimeout(run, delay);
       } else {
-        // ⭐ 最終結果
         const finalIndex = Math.floor(Math.random() * restaurants.length);
-        const finalRestaurant = restaurants[finalIndex];
+        const final = restaurants[finalIndex];
 
-        setSelectedRestaurant(finalRestaurant);
+        // ⭐ 最終結果
+        setSelectedRestaurant(final); // 地圖用
+        setFinalRestaurant(final);    // ⭐ 卡片用！！！
 
-        setIsPicking(false);
-
-        // ⭐ 地圖移到最終餐廳
         setRegion({
-          latitude: finalRestaurant.geometry.location.lat,
-          longitude: finalRestaurant.geometry.location.lng,
+          latitude: final.geometry.location.lat,
+          longitude: final.geometry.location.lng,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         });
@@ -247,6 +243,7 @@ export default function App() {
         </Svg>
 
       </View>
+      <Card restaurant={finalRestaurant} />
     </View>
 
 
