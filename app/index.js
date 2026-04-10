@@ -1,10 +1,12 @@
 import { View, StyleSheet, TouchableOpacity, Text, Animated } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
 import { useEffect, useState, useRef } from 'react';
 import MapView, { Marker, Circle } from 'react-native-maps';
 import Slider from '@react-native-community/slider';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import Card from './Card';
+
 
 const AnimatedCircle = Animated.createAnimatedComponent(SvgCircle);
 export default function App() {
@@ -48,43 +50,43 @@ export default function App() {
   }, []);
 
 
-const fetchRestaurants = async (lat, lng) => {
-  const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=restaurant&opennow=true&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`;
+  const fetchRestaurants = async (lat, lng) => {
+    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=restaurant&opennow=true&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`;
 
-  const res = await fetch(url);
-  const data = await res.json();
+    const res = await fetch(url);
+    const data = await res.json();
 
-  return data.results; // ⭐ 回傳！！
-};
-
-const pickRandom = (data) => {
-  if (!data || data.length === 0) return;
-
-  let count = 0;
-  let delay = 80;
-
-  const run = () => {
-    const index = Math.floor(Math.random() * data.length);
-    const randomRestaurant = data[index];
-
-    setSelectedRestaurant(randomRestaurant);
-
-    count++;
-    delay += 30;
-
-    if (count < 18) {
-      setTimeout(run, delay);
-    } else {
-      const finalIndex = Math.floor(Math.random() * data.length);
-      const final = data[finalIndex];
-
-      setSelectedRestaurant(final);
-      setFinalRestaurant(final);
-    }
+    return data.results; // ⭐ 回傳！！
   };
 
-  run();
-};
+  const pickRandom = (data) => {
+    if (!data || data.length === 0) return;
+
+    let count = 0;
+    let delay = 80;
+
+    const run = () => {
+      const index = Math.floor(Math.random() * data.length);
+      const randomRestaurant = data[index];
+
+      setSelectedRestaurant(randomRestaurant);
+
+      count++;
+      delay += 30;
+
+      if (count < 18) {
+        setTimeout(run, delay);
+      } else {
+        const finalIndex = Math.floor(Math.random() * data.length);
+        const final = data[finalIndex];
+
+        setSelectedRestaurant(final);
+        setFinalRestaurant(final);
+      }
+    };
+
+    run();
+  };
 
   const recenterMap = () => {
     if (!location || !mapRef.current) return;
@@ -98,18 +100,18 @@ const pickRandom = (data) => {
   };
 
 
- const handlePick = async () => {
-  if (!location) return;
+  const handlePick = async () => {
+    if (!location) return;
 
-  const results = await fetchRestaurants(
-    location.latitude,
-    location.longitude
-  );
+    const results = await fetchRestaurants(
+      location.latitude,
+      location.longitude
+    );
 
-  setRestaurants(results); // optional（給地圖用）
+    setRestaurants(results); // optional（給地圖用）
 
-  pickRandom(results); // ⭐ 直接傳進去
-};
+    pickRandom(results); // ⭐ 直接傳進去
+  };
 
   const stopHolding = () => {
     setIsHolding(false);
@@ -122,10 +124,11 @@ const pickRandom = (data) => {
 
 
   return (
-    <View style={{ flex: 1 }}>
+   <View style={styles.container}>
+      <StatusBar hidden={true} style="light" />
       <MapView
         ref={mapRef}
-        style={StyleSheet.absoluteFillObject}
+        style={styles.map}
         showsUserLocation={true}
         region={region}
       >
@@ -151,96 +154,119 @@ const pickRandom = (data) => {
           />
         )}
       </MapView>
-      <View style={styles.sliderContainer}>
-        <Slider
-          style={styles.slider}
-          minimumValue={500}
-          maximumValue={1000}
-          step={100}
-          value={radius}
-          onValueChange={(value) => setRadius(value)}
-        />
 
-      </View>
-      <View style={styles.progressWrapper}>
-        <View style={styles.buttonBackground} />
 
-        <Animated.View style={{ transform: [{ scale }] }}>
-          <TouchableOpacity
-            activeOpacity={1}
-            onPressIn={() => {
-              if (isPicking) return;
+      <View
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="box-none"
+      >
+        <View style={styles.sliderContainer}>
+          <Slider
+            style={styles.slider}
+            minimumValue={500}
+            maximumValue={1000}
+            step={100}
+            value={radius}
+            onValueChange={(value) => setRadius(value)}
 
-              setIsHolding(true);
+          />
 
-              // ⭐ 按下縮小
-              Animated.spring(scale, {
-                toValue: 0.9,
-                useNativeDriver: true,
-              }).start();
+        </View>
 
-              Animated.timing(progress, {
-                toValue: 1,
-                duration: 2000,
-                useNativeDriver: false,
-              }).start(({ finished }) => {
-                if (finished) {
-                  recenterMap();
-                  handlePick();
-                  stopHolding();
-                }
-              });
+
+        <View style={styles.progressWrapper}>
+          <View style={styles.buttonBackground} />
+
+          <Animated.View
+            style={{
+              transform: [{ scale }],
+              justifyContent: 'center',
+              alignItems: 'center', // ⭐ 中心對齊
             }}
-            onPressOut={() => {
-              stopHolding();
-
-              // ⭐ 彈回原本大小
-              Animated.spring(scale, {
-                toValue: 1,
-                useNativeDriver: true,
-              }).start();
-            }}
-            style={styles.button}
           >
-            <Text style={styles.buttonText}>Press{"\n"}to{"\n"}Start</Text>
-          </TouchableOpacity>
-        </Animated.View>
 
-        {/* ⭐ 進度條 */}
-        <Svg
-          width={180}
-          height={180}
-          style={styles.progressSvg}
-          pointerEvents="none">
-          <Circle
-            cx="90"
-            cy="90"
-            r="80"
-            stroke="#FFF0DE"
-            strokeWidth={6}
-            fill="none"
-          />
+            {/* ⭐ 進度條 */}
 
-          <AnimatedCircle
-            cx="90"
-            cy="90"
-            r="80"
-            rotation="-90"
-            origin="90,90"
-            stroke="#FFF0DE"
-            strokeWidth={6}
-            fill="none"
-            strokeDasharray={2 * Math.PI * 80}
-            strokeDashoffset={progress.interpolate({
-              inputRange: [0, 1],
-              outputRange: [2 * Math.PI * 80, 0],
-            })}
-          />
-        </Svg>
+            <Svg
+              width={180}
+              height={180}
+              style={styles.progressSvg}
+              pointerEvents="box-none">
 
+              <Circle
+                cx="90"
+                cy="90"
+                r="80"
+                stroke="#FFF0DE"
+                strokeWidth={10}
+                fill="none"
+              />
+
+              <AnimatedCircle
+                cx="90"
+                cy="90"
+                r="80"
+                rotation="-90"
+                origin="90,90"
+                stroke="#FFF0DE"
+                strokeWidth={10}
+                fill="none"
+                strokeDasharray={2 * Math.PI * 80}
+                strokeDashoffset={progress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [2 * Math.PI * 80, 0],
+                })}
+              />
+            </Svg>
+
+
+            <TouchableOpacity
+              activeOpacity={1}
+              onPressIn={() => {
+                if (isPicking) return;
+
+                setIsHolding(true);
+
+                // ⭐ 按下縮小
+                Animated.spring(scale, {
+                  toValue: 0.9,
+                  useNativeDriver: true,
+                }).start();
+
+                Animated.timing(progress, {
+                  toValue: 1,
+                  duration: 2000,
+                  useNativeDriver: false,
+                }).start(({ finished }) => {
+                  if (finished) {
+                    recenterMap();
+                    handlePick();
+                    stopHolding();
+                  }
+                });
+              }}
+              onPressOut={() => {
+                stopHolding();
+
+                // ⭐ 彈回原本大小
+                Animated.spring(scale, {
+                  toValue: 1,
+                  useNativeDriver: true,
+                }).start();
+              }}
+              style={styles.button}
+            >
+              <Text style={styles.buttonText}>Press{"\n"}to{"\n"}Start</Text>
+            </TouchableOpacity>
+          </Animated.View>
+
+
+
+        </View>
       </View>
+
       <Card restaurant={finalRestaurant} />
-    </View>
+   </View>
 
 
   );
@@ -249,6 +275,7 @@ const pickRandom = (data) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000',
   },
 
   map: {
@@ -266,6 +293,8 @@ const styles = StyleSheet.create({
     height: 300, // ⭐ 控制整體高度
     justifyContent: 'space-between', // ⭐ 上下分開
     alignItems: 'center',
+    pointerEvents: 'box-none',
+
   },
 
 
@@ -286,6 +315,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     justifyContent: 'center',
     alignItems: 'center',
+    pointerEvents: 'box-none',
   },
 
   buttonBackground: {
@@ -303,7 +333,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#8FAE9D',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1, // ⭐ 保證在背景上面
+    zIndex: 999, // ⭐ 保證在背景上面
+    elevation: 10,
   },
 
   buttonText: {
@@ -315,6 +346,6 @@ const styles = StyleSheet.create({
 
   progressSvg: {
     position: 'absolute',
-    zIndex: 2, // ⭐ 最上層
+
   },
 });

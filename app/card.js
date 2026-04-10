@@ -5,47 +5,36 @@ export default function Card({ restaurant }) {
   const translateY = useRef(new Animated.Value(300)).current;
 
   useEffect(() => {
-    if (!restaurant) return;
-
-    // ⭐ 重置位置
-    translateY.setValue(300);
-
     const animation = Animated.timing(translateY, {
-      toValue: 0,
+      toValue: restaurant ? 0 : 300,
       duration: 400,
       useNativeDriver: true,
     });
 
     animation.start();
-
-    // ⭐ 防止 component unmount 時炸掉
-    return () => {
-      animation.stop();
-    };
-
+    return () => animation.stop();
   }, [restaurant]);
-
-  if (!restaurant) return null;
 
   return (
     <Animated.View
+      pointerEvents={restaurant ? 'auto' : 'none'}
       style={[
         styles.card,
         { transform: [{ translateY }] }
       ]}
     >
-      <Text style={styles.title}>{restaurant.name}</Text>
-      <View style={styles.InfoContainer}>
-        <Text style={styles.Info}> {restaurant.vicinity}</Text>
-      </View>
+      <Text style={styles.title}>
+        {restaurant?.name || ''}
+      </Text>
 
-
-      {/* 之後可以加你的評論 */}
-      <Text style={styles.comment}>💬 我的評論：好吃！</Text>
+      <Text style={styles.Info}>
+        {restaurant?.vicinity || ''}
+      </Text>
     </Animated.View>
   );
 }
 
+// ⭐ 一定要在外面
 const styles = StyleSheet.create({
   card: {
     position: 'absolute',
@@ -55,38 +44,15 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     padding: 20,
-
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 10,
+    
   },
 
   title: {
-
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 10,
-  },
-
-  InfoContainer: {
-    padding: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 24,
-    fontWeight: 'bold',
-   
   },
 
   Info: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 16,
   },
-
-  comment: {
-    marginTop: 10,
-    color: '#666',
-  },
-
-
 });
