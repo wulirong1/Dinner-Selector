@@ -1,6 +1,6 @@
-import { View, StyleSheet, TouchableOpacity, Text, Vibration, Animated } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Animated } from 'react-native';
 import * as Location from 'expo-location';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import MapView, { Marker, Circle } from 'react-native-maps';
 import Slider from '@react-native-community/slider';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
@@ -15,6 +15,8 @@ export default function App() {
   const [isPicking, setIsPicking] = useState(false);
   const progress = useState(new Animated.Value(0))[0];
   const [isHolding, setIsHolding] = useState(false);
+  const scale = useState(new Animated.Value(1))[0];
+  const mapRef = useRef(null);
 
   const [region, setRegion] = useState({
     latitude: 25.033,
@@ -57,7 +59,7 @@ export default function App() {
   const pickRandom = () => {
     if (restaurants.length === 0) return;
 
-    setIsPicking(true);
+    setIsPicking(false);
 
     let count = 0;
     let delay = 80; // ⭐ 一開始很快
@@ -98,6 +100,18 @@ export default function App() {
 
     run();
   };
+  const recenterMap = () => {
+    if (!location || !mapRef.current) return;
+
+    mapRef.current.animateToRegion({
+      latitude: location.latitude,
+      longitude: location.longitude,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    }, 500); // ⭐ 500ms 滑動
+  };
+
+
   const handlePick = async () => {
     if (!location) return;
 
@@ -111,9 +125,14 @@ export default function App() {
     // ⭐ 停止動畫（如果有需要）
     progress.setValue(0);
   };
+
+
+
+
   return (
     <View style={{ flex: 1 }}>
       <MapView
+        ref={mapRef}
         style={StyleSheet.absoluteFillObject}
         showsUserLocation={true}
         region={region}
@@ -152,14 +171,61 @@ export default function App() {
 
       </View>
       <View style={styles.progressWrapper}>
+        <View style={styles.buttonBackground} />
 
-        <Svg width={180} height={180}>
+        <Animated.View style={{ transform: [{ scale }] }}>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPressIn={() => {
+              if (isPicking) return;
+
+              setIsHolding(true);
+
+              // ⭐ 按下縮小
+              Animated.spring(scale, {
+                toValue: 0.9,
+                useNativeDriver: true,
+              }).start();
+
+              Animated.timing(progress, {
+                toValue: 1,
+                duration: 2000,
+                useNativeDriver: false,
+              }).start(({ finished }) => {
+                if (finished) {
+                  recenterMap();
+                  handlePick();
+                  stopHolding();
+                }
+              });
+            }}
+            onPressOut={() => {
+              stopHolding();
+
+              // ⭐ 彈回原本大小
+              Animated.spring(scale, {
+                toValue: 1,
+                useNativeDriver: true,
+              }).start();
+            }}
+            style={styles.button}
+          >
+            <Text style={styles.buttonText}>Press{"\n"}to{"\n"}Start</Text>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* ⭐ 進度條 */}
+        <Svg
+          width={180}
+          height={180}
+          style={styles.progressSvg}
+          pointerEvents="none">
           <Circle
             cx="90"
             cy="90"
             r="80"
-            stroke="#ccc"
-            strokeWidth="6"
+            stroke="#FFF0DE"
+            strokeWidth={6}
             fill="none"
           />
 
@@ -169,8 +235,8 @@ export default function App() {
             r="80"
             rotation="-90"
             origin="90,90"
-            stroke="#8FAE9D"
-            strokeWidth="6"
+            stroke="#FFF0DE"
+            strokeWidth={6}
             fill="none"
             strokeDasharray={2 * Math.PI * 80}
             strokeDashoffset={progress.interpolate({
@@ -180,30 +246,6 @@ export default function App() {
           />
         </Svg>
 
-        <TouchableOpacity
-          onPressIn={() => {
-            if (isPicking) return;
-
-            setIsHolding(true);
-
-            Animated.timing(progress, {
-              toValue: 1,
-              duration: 2000,
-              useNativeDriver: false,
-            }).start(({ finished }) => {
-              if (finished) {
-                handlePick();
-                stopHolding();
-              }
-            });
-          }}
-
-          onPressOut={stopHolding}
-
-          style={styles.button}
-        >
-          <Text style={styles.buttonText}>抽晚餐</Text>
-        </TouchableOpacity>
       </View>
     </View>
 
@@ -237,7 +279,7 @@ const styles = StyleSheet.create({
 
   slider: {
     width: 300,
-    height: 40,
+    height: 50,
     transform: [
       { rotate: '-90deg' },
       { translateY: 130 },
@@ -246,46 +288,40 @@ const styles = StyleSheet.create({
   },
 
   progressWrapper: {
-  position: 'absolute',
-  bottom: 110,
-  alignSelf: 'center',
-  justifyContent: 'center',
-  alignItems: 'center',
-},
+    position: 'absolute',
+    bottom: 110,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 
-progressSvg: {
-  position: 'absolute', // ⭐ 關鍵！！
-},
+  buttonBackground: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(143,174,157,0.3)',
+  },
 
-buttonWrapper: {
-  justifyContent: 'center',
-  alignItems: 'center',
-},
+  button: {
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: '#8FAE9D',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1, // ⭐ 保證在背景上面
+  },
 
-buttonBackground: {
-  position: 'absolute', // ⭐ 一定要有！
+  buttonText: {
+    textAlign: 'center',
+    fontSize: 24,
+    fontWeight: "bold",
+    color: '#FFF0DE',
+  },
 
-  width: 200,
-  height: 200,
-  borderRadius: 100,
-
-  backgroundColor: 'rgba(143,174,157,0.3)', // 建議0.3比較好看
-},
-
-button: {
-  width: 160,
-  height: 160,
-  borderRadius: 80,
-
-  backgroundColor: '#8FAE9D',
-
-  justifyContent: 'center',
-  alignItems: 'center',
-},
-
-buttonText: {
-  color: '#fff',
-  fontSize: 18,
-},
-
+  progressSvg: {
+    position: 'absolute',
+    zIndex: 2, // ⭐ 最上層
+  },
 });
