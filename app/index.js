@@ -1,5 +1,4 @@
 import { View, StyleSheet, TouchableOpacity, Text, Animated } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
 import { useEffect, useState, useRef } from 'react';
 import MapView, { Marker, Circle } from 'react-native-maps';
@@ -12,7 +11,7 @@ const AnimatedCircle = Animated.createAnimatedComponent(SvgCircle);
 export default function App() {
   const [finalRestaurant, setFinalRestaurant] = useState(null);
   const [location, setLocation] = useState(null);
-  const [restaurants, setRestaurants] = useState([]);
+  const [restaurants, setRestaurants] = useState([null]);
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [radius, setRadius] = useState(500); // 預設500m
   const [isPicking, setIsPicking] = useState(false);
@@ -20,6 +19,7 @@ export default function App() {
   const [isHolding, setIsHolding] = useState(false);
   const scale = useState(new Animated.Value(1))[0];
   const mapRef = useRef(null);
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const [region, setRegion] = useState({
     latitude: 25.033,
@@ -49,9 +49,17 @@ export default function App() {
     })();
   }, []);
 
+  const fetchDetails = async (placeId) => {
+    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=opening_hours&language=zh-TW&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`;
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    return data.result;
+  };
 
   const fetchRestaurants = async (lat, lng) => {
-    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=restaurant&opennow=true&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`;
+    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=restaurant&opennow=true&language=zh-TW&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`;
 
     const res = await fetch(url);
     const data = await res.json();
@@ -59,7 +67,7 @@ export default function App() {
     return data.results; // ⭐ 回傳！！
   };
 
-  const pickRandom = (data) => {
+  const pickRandom = async (data) => {
     if (!data || data.length === 0) return;
 
     let count = 0;
@@ -71,6 +79,21 @@ export default function App() {
 
       setSelectedRestaurant(randomRestaurant);
 
+      // ⭐ 先縮回
+      scaleAnim.setValue(0.8);
+
+      // ⭐ 再彈出
+      Animated.spring(scaleAnim, {
+        toValue: 1.4,
+        friction: 3,
+        useNativeDriver: true,
+      }).start(() => {
+        // ⭐ 回正常大小
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+        }).start();
+      });
       count++;
       delay += 30;
 
@@ -81,7 +104,23 @@ export default function App() {
         const final = data[finalIndex];
 
         setSelectedRestaurant(final);
-        setFinalRestaurant(final);
+
+        // ⭐ 抓詳細資料（營業時間）
+        (async () => {
+          const details = await fetchDetails(final.place_id);
+
+          setFinalRestaurant({
+            ...final,
+            details, // ⭐ 加進去
+          });
+        })();
+
+        mapRef.current?.animateToRegion({
+          latitude: final.geometry.location.lat,
+          longitude: final.geometry.location.lng,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        }, 500);
       }
     };
 
@@ -101,6 +140,7 @@ export default function App() {
 
 
   const handlePick = async () => {
+    setFinalRestaurant(null);
     if (!location) return;
 
     const results = await fetchRestaurants(
@@ -124,8 +164,7 @@ export default function App() {
 
 
   return (
-   <View style={styles.container}>
-      <StatusBar hidden={true} style="light" />
+    <View style={styles.container}>
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -265,8 +304,14 @@ export default function App() {
         </View>
       </View>
 
-      <Card restaurant={finalRestaurant} />
-   </View>
+      <Card
+        restaurant={finalRestaurant}
+        onClose={() => {
+          setFinalRestaurant(null);
+          setSelectedRestaurant(null); // ⭐ 加這行
+        }}
+      />
+    </View>
 
 
   );
