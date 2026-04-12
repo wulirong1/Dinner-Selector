@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ScrollView, Alert, Keyboard, TouchableWithoutFeedback } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -9,7 +9,13 @@ export default function AddComment({ onClose, onSubmit, onDelete, restaurant, re
   const [like, setLike] = useState(null);
   const [images, setImages] = useState([]);
 
-
+  useEffect(() => {
+    if (review) {
+      setText(review.text || '');
+      setLike(review.like || null);
+      setImages(review.images || []);
+    }
+  }, [review]);
   const requestPermission = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -55,16 +61,22 @@ export default function AddComment({ onClose, onSubmit, onDelete, restaurant, re
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={styles.container}>
 
+
+        {/*返回按鈕*/}
         <TouchableOpacity
           style={styles.backBtn}
           onPress={onClose}
         >
           <MaterialIcons name="chevron-left" size={35} color="#6B4F4F" />
         </TouchableOpacity>
+
+
         <Text style={styles.title}>
           {restaurant?.name || '店家名稱'}
         </Text>
 
+
+        {/*喜歡與討厭按鈕*/}
         <View style={styles.likeRow}>
           <TouchableOpacity onPress={() => setLike('like')}>
             <MaterialIcons
@@ -82,6 +94,8 @@ export default function AddComment({ onClose, onSubmit, onDelete, restaurant, re
             />
           </TouchableOpacity>
         </View>
+
+
         <View style={styles.inputContainer}>
           <TextInput
             placeholder="新增評論..."
@@ -111,15 +125,23 @@ export default function AddComment({ onClose, onSubmit, onDelete, restaurant, re
           <Text style={{ fontSize: 30 }}>📷</Text>
           <Text>上傳圖片</Text>
         </TouchableOpacity>
-        <ScrollView horizontal style={{ marginBottom: 20 }}>
-          {images.map((img, i) => (
-            <Image
-              key={i}
-              source={{ uri: img }}
-              style={styles.previewImage}
-            />
-          ))}
-        </ScrollView>
+
+
+        <ScrollView
+    horizontal
+    showsHorizontalScrollIndicator={false}
+    contentContainerStyle={styles.imageScrollContent}
+  >
+    {images.map((img, i) => (
+      <Image
+        key={i}
+        source={{ uri: img }}
+        style={styles.previewImage}
+      />
+    ))}
+  </ScrollView>
+
+        {/*上傳按鈕*/}
         <TouchableOpacity
           style={styles.submitBtn}
           onPress={() => {
@@ -132,6 +154,8 @@ export default function AddComment({ onClose, onSubmit, onDelete, restaurant, re
         >
           <Text style={styles.submitText}>發佈</Text>
         </TouchableOpacity>
+
+        {/*刪除按鈕*/}
         {review && (
           <TouchableOpacity
             style={styles.deleteBtn}
@@ -152,7 +176,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F2EE',
     padding: 20,
-    justifyContent: 'center',
+
   },
 
   title: {
@@ -198,20 +222,34 @@ const styles = StyleSheet.create({
     height: 150,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    
   },
 
   submitBtn: {
+    position: 'absolute',
+    bottom: 60,
+    left: 20,
+    right: 20,
     backgroundColor: '#8FA89E',
     padding: 15,
     borderRadius: 25,
     alignItems: 'center',
   },
-
   submitText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+
+  // 增加一個容器來包裹 ScrollView，確保它有固定的垂直空間
+  imageScrollContainer: {
+    height: 100, // 根據你的圖片高度(80)加上一點 padding
+    marginBottom: 100, // 留出空間給絕對定位的「發佈」按鈕，避免被擋住
+  },
+  
+  imageScrollContent: {
+    paddingHorizontal: 5, // 讓第一張跟最後一張照片不要貼邊
+    alignItems: 'center',
   },
 
   previewImage: {
@@ -219,6 +257,7 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 10,
     marginRight: 10,
+    backgroundColor: '#ddd', // 沒圖時可以看到框框
   },
 
   backBtn: {
