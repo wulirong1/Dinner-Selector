@@ -1,26 +1,75 @@
-import { View, Text, StyleSheet, Animated, TouchableOpacity, ScrollView, Image, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Animated, TouchableOpacity, ScrollView, Image, TextInput, PanResponder } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import AddComment from './addcomment';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+
 export default function Card({ restaurant, onClose }) {
-  const translateY = useRef(new Animated.Value(300)).current;
+  const SCREEN_HEIGHT = 800;
+  const HALF_OPEN = SCREEN_HEIGHT * 0.5;
+  const FULL_OPEN = 100;
+  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const currentY = useRef(HALF_OPEN);
   const [showAddComment, setShowAddComment] = useState(false);
   const [reviews, setReviews] = useState([]);
   const [selectedReview, setSelectedReview] = useState(null);
+
+
+  const panResponder = useRef(
+    PanResponder.create({
+
+      onStartShouldSetPanResponder: () => true, // ⭐ 超重要
+
+      onMoveShouldSetPanResponder: (_, gesture) => {
+        return Math.abs(gesture.dy) > 5;
+      },
+
+      onPanResponderMove: (_, gesture) => {
+        const newY = Math.min(
+          SCREEN_HEIGHT,
+          Math.max(FULL_OPEN, currentY.current + gesture.dy)
+        );
+        translateY.setValue(newY);
+      },
+
+      onPanResponderRelease: (_, gesture) => {
+        let finalY = HALF_OPEN;
+
+        if (gesture.dy < -50) {
+          finalY = FULL_OPEN;
+        } else if (gesture.dy > 50) {
+          finalY = HALF_OPEN;
+        }
+
+        currentY.current = finalY;
+
+        Animated.spring(translateY, {
+          toValue: finalY,
+          useNativeDriver: true,
+        }).start();
+      },
+
+    })
+  ).current;
 
   const openingHours =
     restaurant?.details?.opening_hours?.weekday_text;
 
   useEffect(() => {
+    if (restaurant) {
+      currentY.current = HALF_OPEN;
+      translateY.setValue(HALF_OPEN); // ⭐ 這行超重要
+    } else {
+      translateY.setValue(SCREEN_HEIGHT);
+    }
+
     Animated.timing(translateY, {
-      toValue: restaurant ? 0 : 300,
+      toValue: restaurant ? HALF_OPEN : SCREEN_HEIGHT,
       duration: 400,
       useNativeDriver: true,
     }).start();
   }, [restaurant]);
-
   useEffect(() => {
     loadReviews();
   }, []);
@@ -49,6 +98,7 @@ export default function Card({ restaurant, onClose }) {
 
   return (
     <Animated.View
+      {...panResponder.panHandlers}
       pointerEvents={restaurant ? 'auto' : 'none'}
       style={[
         styles.card,
@@ -109,6 +159,7 @@ export default function Card({ restaurant, onClose }) {
         />
       ) : (
         <>
+
           <View style={styles.cardtop}>
             <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
               <Text style={styles.closeText}>✕</Text>
@@ -120,16 +171,33 @@ export default function Card({ restaurant, onClose }) {
               </Text>
             </View>
           </View>
+          <ScrollView
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: 100 } // ⭐ 關鍵
+            ]}
+            scrollEnabled={true}
+          >
 
-          <ScrollView contentContainerStyle={styles.scrollContent}>
+
             <View style={styles.Info}>
+
+              <Text style={styles.types}>
+                餐廳類型: {restaurant?.types
+                  ?.filter(t => t !== 'restaurant' && t !== 'food' && t !== 'point_of_interest' && t !== 'establishment')
+                  .slice(0, 2)
+                  .join(' / ') || '無分類'}
+              </Text>
+
               <Text style={styles.address}>
                 {restaurant?.vicinity || restaurant?.formatted_address || ''}
               </Text>
 
+
+
               {openingHours ? (
                 openingHours.map((day, index) => (
-                  <Text key={index}>🕒 {day}</Text>
+                  <Text key={index}> {day}</Text>
                 ))
               ) : (
                 <Text>🕒 無營業時間資料</Text>
@@ -137,8 +205,15 @@ export default function Card({ restaurant, onClose }) {
             </View>
 
             {reviews.length > 0 && (
-              <Text style={styles.sectionTitle}>評論</Text>
+              <Text style={styles.sectionTitle}>-comments-</Text>
             )}
+
+            <TouchableOpacity
+              style={styles.fixedBtn}
+              onPress={() => setShowAddComment(true)}
+            >
+              <Text style={styles.fixedBtnText}>新增評論</Text>
+            </TouchableOpacity>
 
             {reviews
               .filter(r => r.restaurantId === restaurant.id)
@@ -179,12 +254,7 @@ export default function Card({ restaurant, onClose }) {
               ))}
           </ScrollView>
 
-          <TouchableOpacity
-            style={styles.fixedBtn}
-            onPress={() => setShowAddComment(true)}
-          >
-            <Text style={styles.fixedBtnText}>新增評論</Text>
-          </TouchableOpacity>
+
         </>
       )}
     </Animated.View>
@@ -196,7 +266,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     width: '100%',
-
+    height: '90%',
     backgroundColor: '#FFF0DE',
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
@@ -223,7 +293,10 @@ const styles = StyleSheet.create({
   address: {
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 10,
   },
+
+
 
   closeBtn: {
     position: "absolute",
@@ -275,10 +348,7 @@ const styles = StyleSheet.create({
   },
 
   fixedBtn: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
+    margin: 20,
     backgroundColor: '#8FA89E',
     padding: 15,
     borderRadius: 25,
@@ -299,4 +369,10 @@ const styles = StyleSheet.create({
   },
 
 
+  types: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+    marginBottom: 5,
+  },
 });

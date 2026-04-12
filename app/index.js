@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import MapView, { Marker, Circle } from 'react-native-maps';
 import Slider from '@react-native-community/slider';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 import Card from './Card';
 
 
@@ -12,7 +13,7 @@ const AnimatedCircle = Animated.createAnimatedComponent(SvgCircle);
 export default function App() {
   const [finalRestaurant, setFinalRestaurant] = useState(null);
   const [location, setLocation] = useState(null);
-  const [restaurants, setRestaurants] = useState([null]);
+  const [restaurants, setRestaurants] = useState([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [radius, setRadius] = useState(500); // 預設500m
   const [isPicking, setIsPicking] = useState(false);
@@ -23,6 +24,10 @@ export default function App() {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const [searchText, setSearchText] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [blink, setBlink] = useState(true);
+  const blinkInterval = useRef(null);
+  const [showAllMarkers, setShowAllMarkers] = useState(true);
+
   const [region, setRegion] = useState({
     latitude: 25.033,
     longitude: 121.565,
@@ -50,6 +55,12 @@ export default function App() {
 
     })();
   }, []);
+  useEffect(() => {
+    if (location) {
+      fetchRestaurants(location.latitude, location.longitude)
+        .then(setRestaurants);
+    }
+  }, [location]);
 
   const fetchDetails = async (placeId) => {
     const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=opening_hours&language=zh-TW&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`;
@@ -139,6 +150,9 @@ export default function App() {
             details, // ⭐ 加進去
           });
         })();
+        clearInterval(blinkInterval.current);
+        setBlink(true);
+        setIsPicking(false); // ⭐ 超重要
 
         mapRef.current?.animateToRegion({
           latitude: final.geometry.location.lat,
@@ -165,6 +179,31 @@ export default function App() {
 
 
   const handlePick = async () => {
+
+    setIsPicking(true);
+    setShowAllMarkers(false); // ⭐ 抽的時候隱藏全部
+    const interval = setInterval(() => {
+      setBlink(prev => !prev);
+    }, 200);
+
+    // ⭐ 存起來（很重要）
+    blinkInterval.current = interval;
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 0.2,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+    setIsPicking(true); // ⭐ 加這行
     setFinalRestaurant(null);
     if (!location) return;
 
@@ -197,6 +236,7 @@ export default function App() {
           showsUserLocation={true}
           region={region}
         >
+          {/* 範圍圈 */}
           {location && (
             <Circle
               center={{
@@ -209,13 +249,56 @@ export default function App() {
               strokeWidth={2}
             />
           )}
-          {selectedRestaurant?.geometry?.location && (
+
+          {/* ⭐ 平常：全部餐廳 */}
+          {!isPicking && showAllMarkers &&
+            restaurants.map((r) => (
+              <Marker
+                key={r.place_id}
+                coordinate={{
+                  latitude: r.geometry.location.lat,
+                  longitude: r.geometry.location.lng,
+                }}
+                title={r.name}
+                onPress={async () => {
+                  setShowAllMarkers(false); // ⭐ 加這行
+                  const details = await fetchDetails(r.place_id);
+
+                  const restaurantData = {
+                    ...r,
+                    id: r.place_id,
+                  };
+
+                  setSelectedRestaurant(restaurantData);
+                  setFinalRestaurant({
+                    ...restaurantData,
+                    details,
+                  });
+                }}
+              />
+            ))
+          }
+
+          {/* ⭐ 抽卡中：只有一顆閃 */}
+          {isPicking && selectedRestaurant?.geometry?.location && (
             <Marker
               coordinate={{
                 latitude: selectedRestaurant.geometry.location.lat,
                 longitude: selectedRestaurant.geometry.location.lng,
               }}
               title={selectedRestaurant.name}
+              opacity={blink ? 1 : 0} // ⭐ 這才是真正會閃的
+            />
+          )}
+
+          {/* ⭐ 抽完：顯示結果 */}
+          {!isPicking && finalRestaurant?.geometry?.location && (
+            <Marker
+              coordinate={{
+                latitude: finalRestaurant.geometry.location.lat,
+                longitude: finalRestaurant.geometry.location.lng,
+              }}
+              title={finalRestaurant.name}
             />
           )}
         </MapView>
@@ -282,9 +365,15 @@ export default function App() {
               step={100}
               value={radius}
               onValueChange={(value) => setRadius(value)}
-
             />
 
+            {/* ⭐ 回到定位按鈕 */}
+            <TouchableOpacity
+              style={styles.recenterBtn}
+              onPress={recenterMap}
+            >
+              <Icon name="my-location" size={24} color="#fff" />
+            </TouchableOpacity>
           </View>
 
 
@@ -383,7 +472,8 @@ export default function App() {
           restaurant={finalRestaurant}
           onClose={() => {
             setFinalRestaurant(null);
-            setSelectedRestaurant(null); // ⭐ 加這行
+            setSelectedRestaurant(null);
+            setShowAllMarkers(true); // ⭐ 加這行
           }}
         />
       </View>
@@ -409,7 +499,7 @@ const styles = StyleSheet.create({
 
   sliderContainer: {
     position: 'absolute',
-    right: 10,
+    right: 20,
     top: '50%',
     transform: [{ translateY: -150 }],
     height: 300, // ⭐ 控制整體高度
@@ -429,6 +519,19 @@ const styles = StyleSheet.create({
       { translateY: 130 },
       { translateX: -100 },
     ],
+  },
+
+  recenterBtn: {
+    left: 130,
+    bottom:-50,
+    marginTop: 20,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#8FAE9D',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
   },
 
   progressWrapper: {
@@ -492,4 +595,5 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#eee',
   },
+
 });
