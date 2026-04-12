@@ -1,3 +1,5 @@
+console.log("test");
+
 import { View, StyleSheet, TouchableOpacity, Text, Animated, TextInput, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import * as Location from 'expo-location';
 import { useEffect, useState, useRef } from 'react';
