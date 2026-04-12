@@ -1,10 +1,11 @@
-import { View, StyleSheet, TouchableOpacity, Text, Animated } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Animated, TextInput, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import * as Location from 'expo-location';
 import { useEffect, useState, useRef } from 'react';
 import MapView, { Marker, Circle } from 'react-native-maps';
 import Slider from '@react-native-community/slider';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import Card from './Card';
+
 
 
 const AnimatedCircle = Animated.createAnimatedComponent(SvgCircle);
@@ -20,7 +21,8 @@ export default function App() {
   const scale = useState(new Animated.Value(1))[0];
   const mapRef = useRef(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
-
+  const [searchText, setSearchText] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
   const [region, setRegion] = useState({
     latitude: 25.033,
     longitude: 121.565,
@@ -67,6 +69,28 @@ export default function App() {
     return data.results; // ⭐ 回傳！！
   };
 
+
+  const searchPlaces = async (text) => {
+    if (!text) {
+      setSearchResults([]);
+      return;
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${text}&language=zh-TW&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`;
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    setSearchResults(data.results || []);
+  };
+
+  useEffect(() => {
+    const delay = setTimeout(() => {
+      searchPlaces(searchText);
+    }, 300); // 防抖
+
+    return () => clearTimeout(delay);
+  }, [searchText]);
   const pickRandom = async (data) => {
     if (!data || data.length === 0) return;
 
@@ -111,6 +135,7 @@ export default function App() {
 
           setFinalRestaurant({
             ...final,
+            id: final.place_id, // ⭐ 統一ID（關鍵）
             details, // ⭐ 加進去
           });
         })();
@@ -164,154 +189,206 @@ export default function App() {
 
 
   return (
-    <View style={styles.container}>
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        showsUserLocation={true}
-        region={region}
-      >
-        {location && (
-          <Circle
-            center={{
-              latitude: location.latitude,
-              longitude: location.longitude,
-            }}
-            radius={radius}
-            strokeColor="rgba(0,122,255,0.8)"
-            fillColor="rgba(0,122,255,0.15)"
-            strokeWidth={2}
-          />
-        )}
-        {selectedRestaurant && (
-          <Marker
-            coordinate={{
-              latitude: selectedRestaurant.geometry.location.lat,
-              longitude: selectedRestaurant.geometry.location.lng,
-            }}
-            title={selectedRestaurant.name}
-          />
-        )}
-      </MapView>
-
-
-      <View
-        style={StyleSheet.absoluteFillObject}
-        pointerEvents="box-none"
-      >
-        <View style={styles.sliderContainer}>
-          <Slider
-            style={styles.slider}
-            minimumValue={500}
-            maximumValue={1000}
-            step={100}
-            value={radius}
-            onValueChange={(value) => setRadius(value)}
-
-          />
-
-        </View>
-
-
-        <View style={styles.progressWrapper}>
-          <View style={styles.buttonBackground} />
-
-          <Animated.View
-            style={{
-              transform: [{ scale }],
-              justifyContent: 'center',
-              alignItems: 'center', // ⭐ 中心對齊
-            }}
-          >
-
-            {/* ⭐ 進度條 */}
-
-            <Svg
-              width={180}
-              height={180}
-              style={styles.progressSvg}
-              pointerEvents="box-none">
-
-              <Circle
-                cx="90"
-                cy="90"
-                r="80"
-                stroke="#FFF0DE"
-                strokeWidth={10}
-                fill="none"
-              />
-
-              <AnimatedCircle
-                cx="90"
-                cy="90"
-                r="80"
-                rotation="-90"
-                origin="90,90"
-                stroke="#FFF0DE"
-                strokeWidth={10}
-                fill="none"
-                strokeDasharray={2 * Math.PI * 80}
-                strokeDashoffset={progress.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [2 * Math.PI * 80, 0],
-                })}
-              />
-            </Svg>
-
-
-            <TouchableOpacity
-              activeOpacity={1}
-              onPressIn={() => {
-                if (isPicking) return;
-
-                setIsHolding(true);
-
-                // ⭐ 按下縮小
-                Animated.spring(scale, {
-                  toValue: 0.9,
-                  useNativeDriver: true,
-                }).start();
-
-                Animated.timing(progress, {
-                  toValue: 1,
-                  duration: 2000,
-                  useNativeDriver: false,
-                }).start(({ finished }) => {
-                  if (finished) {
-                    recenterMap();
-                    handlePick();
-                    stopHolding();
-                  }
-                });
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <View style={styles.container}>
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          showsUserLocation={true}
+          region={region}
+        >
+          {location && (
+            <Circle
+              center={{
+                latitude: location.latitude,
+                longitude: location.longitude,
               }}
-              onPressOut={() => {
-                stopHolding();
-
-                // ⭐ 彈回原本大小
-                Animated.spring(scale, {
-                  toValue: 1,
-                  useNativeDriver: true,
-                }).start();
+              radius={radius}
+              strokeColor="rgba(0,122,255,0.8)"
+              fillColor="rgba(0,122,255,0.15)"
+              strokeWidth={2}
+            />
+          )}
+          {selectedRestaurant?.geometry?.location && (
+            <Marker
+              coordinate={{
+                latitude: selectedRestaurant.geometry.location.lat,
+                longitude: selectedRestaurant.geometry.location.lng,
               }}
-              style={styles.button}
+              title={selectedRestaurant.name}
+            />
+          )}
+        </MapView>
+
+
+        <View
+          style={StyleSheet.absoluteFillObject}
+          pointerEvents="box-none"
+        >
+
+          <View style={styles.searchBox}>
+            <TextInput
+              placeholder="搜尋餐廳..."
+              value={searchText}
+              onChangeText={setSearchText}
+              style={styles.searchInput}
+            />
+
+            {searchResults.map((item, i) => (
+              <TouchableOpacity
+                key={i}
+                style={styles.resultItem}
+                onPress={async () => {
+                  const details = await fetchDetails(item.place_id);
+
+                  const restaurantData = {
+                    ...item,
+                    id: item.place_id,
+                    geometry: item.geometry, // ⭐ 確保有
+                  };
+
+                  // ⭐ marker 用
+                  setSelectedRestaurant(restaurantData);
+
+                  // ⭐ 卡片用
+                  setFinalRestaurant({
+                    ...restaurantData,
+                    details,
+                  });
+
+                  setSearchResults([]);
+                  setSearchText('');
+                  Keyboard.dismiss();
+
+                  mapRef.current?.animateToRegion({
+                    latitude: item.geometry.location.lat,
+                    longitude: item.geometry.location.lng,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                  }, 500);
+                }}
+              >
+                <Text>{item.name}</Text>
+                <Text style={{ color: '#888' }}>{item.formatted_address}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.sliderContainer}>
+            <Slider
+              style={styles.slider}
+              minimumValue={500}
+              maximumValue={1000}
+              step={100}
+              value={radius}
+              onValueChange={(value) => setRadius(value)}
+
+            />
+
+          </View>
+
+
+          <View style={styles.progressWrapper}>
+            <View style={styles.buttonBackground} />
+
+            <Animated.View
+              style={{
+                transform: [{ scale }],
+                justifyContent: 'center',
+                alignItems: 'center', // ⭐ 中心對齊
+              }}
             >
-              <Text style={styles.buttonText}>Press{"\n"}to{"\n"}Start</Text>
-            </TouchableOpacity>
-          </Animated.View>
+
+              {/* ⭐ 進度條 */}
+
+              <Svg
+                width={180}
+                height={180}
+                style={styles.progressSvg}
+                pointerEvents="box-none">
+
+                <Circle
+                  cx="90"
+                  cy="90"
+                  r="80"
+                  stroke="#FFF0DE"
+                  strokeWidth={10}
+                  fill="none"
+                />
+
+                <AnimatedCircle
+                  cx="90"
+                  cy="90"
+                  r="80"
+                  rotation="-90"
+                  origin="90,90"
+                  stroke="#FFF0DE"
+                  strokeWidth={10}
+                  fill="none"
+                  strokeDasharray={2 * Math.PI * 80}
+                  strokeDashoffset={progress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [2 * Math.PI * 80, 0],
+                  })}
+                />
+              </Svg>
+
+
+              <TouchableOpacity
+                activeOpacity={1}
+                onPressIn={() => {
+                  if (isPicking) return;
+
+                  setIsHolding(true);
+
+                  // ⭐ 按下縮小
+                  Animated.spring(scale, {
+                    toValue: 0.9,
+                    useNativeDriver: true,
+                  }).start();
+
+                  Animated.timing(progress, {
+                    toValue: 1,
+                    duration: 2000,
+                    useNativeDriver: false,
+                  }).start(({ finished }) => {
+                    if (finished) {
+                      recenterMap();
+                      handlePick();
+                      stopHolding();
+                    }
+                  });
+                }}
+                onPressOut={() => {
+                  stopHolding();
+
+                  // ⭐ 彈回原本大小
+                  Animated.spring(scale, {
+                    toValue: 1,
+                    useNativeDriver: true,
+                  }).start();
+                }}
+                style={styles.button}
+              >
+                <Text style={styles.buttonText}>Press{"\n"}to{"\n"}Start</Text>
+              </TouchableOpacity>
+            </Animated.View>
 
 
 
+          </View>
         </View>
-      </View>
 
-      <Card
-        restaurant={finalRestaurant}
-        onClose={() => {
-          setFinalRestaurant(null);
-          setSelectedRestaurant(null); // ⭐ 加這行
-        }}
-      />
-    </View>
+        <Card
+          restaurant={finalRestaurant}
+          onClose={() => {
+            setFinalRestaurant(null);
+            setSelectedRestaurant(null); // ⭐ 加這行
+          }}
+        />
+      </View>
+    </TouchableWithoutFeedback>
+
 
 
   );
@@ -392,5 +469,27 @@ const styles = StyleSheet.create({
   progressSvg: {
     position: 'absolute',
 
+  },
+
+  searchBox: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    right: 20,
+    zIndex: 999,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 10,
+  },
+
+  searchInput: {
+    fontSize: 16,
+    marginBottom: 5,
+  },
+
+  resultItem: {
+    padding: 8,
+    borderBottomWidth: 1,
+    borderColor: '#eee',
   },
 });

@@ -1,11 +1,14 @@
 import { View, Text, StyleSheet, Animated, TouchableOpacity, ScrollView, Image, TextInput } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import AddComment from './addcomment';
+import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Card({ restaurant, onClose }) {
   const translateY = useRef(new Animated.Value(300)).current;
   const [showAddComment, setShowAddComment] = useState(false);
   const [reviews, setReviews] = useState([]);
+  const [selectedReview, setSelectedReview] = useState(null);
 
   const openingHours =
     restaurant?.details?.opening_hours?.weekday_text;
@@ -17,6 +20,30 @@ export default function Card({ restaurant, onClose }) {
       useNativeDriver: true,
     }).start();
   }, [restaurant]);
+
+  useEffect(() => {
+    loadReviews();
+  }, []);
+
+
+  const saveReviews = async (data) => {
+    try {
+      await AsyncStorage.setItem('reviews', JSON.stringify(data));
+    } catch (e) {
+      console.log('儲存失敗', e);
+    }
+  };
+
+  const loadReviews = async () => {
+    try {
+      const data = await AsyncStorage.getItem('reviews');
+      if (data) {
+        setReviews(JSON.parse(data));
+      }
+    } catch (e) {
+      console.log('讀取失敗', e);
+    }
+  };
 
   if (!restaurant) return null;
 
@@ -32,10 +59,52 @@ export default function Card({ restaurant, onClose }) {
     >
       {showAddComment ? (
         <AddComment
-          onClose={() => setShowAddComment(false)}
-          onSubmit={(data) => {
-            setReviews([data, ...reviews]);
+          restaurant={restaurant}
+          review={selectedReview}   // ⭐ 傳進去（關鍵）
+
+          onClose={() => {
             setShowAddComment(false);
+            setSelectedReview(null);
+          }}
+
+          onSubmit={(data) => {
+            if (selectedReview) {
+              // ⭐ 編輯
+              const updated = reviews.map(r =>
+                r.id === selectedReview.id ? { ...r, ...data } : r
+              );
+
+              setReviews(updated);
+              saveReviews(updated);
+
+            } else {
+              const newReview = {
+                id: Date.now().toString(),
+                restaurantId: restaurant.id,
+                ...data,              // ⭐ 這行最重要（你漏掉了）
+                images: data.images || [], // ⭐ 防呆
+                date: new Date().toISOString().slice(0, 10).replace(/-/g, "/"),
+              };
+
+              const updatedReviews = [newReview, ...reviews];
+
+              setReviews(updatedReviews);
+              saveReviews(updatedReviews);
+            }
+
+            setShowAddComment(false);
+            setSelectedReview(null);
+          }}
+
+          onDelete={() => {
+            const filtered = reviews.filter(r => r.id !== selectedReview.id);
+
+            setReviews(filtered);
+            saveReviews(filtered);
+
+
+            setShowAddComment(false);
+            setSelectedReview(null);
           }}
         />
       ) : (
@@ -55,7 +124,7 @@ export default function Card({ restaurant, onClose }) {
           <ScrollView contentContainerStyle={styles.scrollContent}>
             <View style={styles.Info}>
               <Text style={styles.address}>
-                {restaurant?.vicinity || ''}
+                {restaurant?.vicinity || restaurant?.formatted_address || ''}
               </Text>
 
               {openingHours ? (
@@ -71,21 +140,43 @@ export default function Card({ restaurant, onClose }) {
               <Text style={styles.sectionTitle}>評論</Text>
             )}
 
-            {reviews.map((r, i) => (
-              <View key={i} style={styles.reviewSection}>
-                <View style={styles.reviewHeader}>
-                  <Text style={styles.reviewDate}>{r.date}</Text>
-                  <Text style={styles.reviewLike}>{r.like === 'like' ? '👍' : '👎'}</Text>
-                </View>
-                <Text style={styles.reviewText}>{r.text}</Text>
+            {reviews
+              .filter(r => r.restaurantId === restaurant.id)
+              .map((r) => (
+                <TouchableOpacity
+                  key={r.id}
+                  style={styles.reviewSection}
+                  onPress={() => {
+                    setSelectedReview(r);
+                    setShowAddComment(true);
+                  }}
+                >
+                  <View style={styles.reviewHeader}>
+                    <Text style={styles.date}>{r.date}</Text>
+                    <View style={styles.likeIcon}>
+                      <MaterialIcons
+                        name={r.like === 'like' ? 'thumb-up' : 'thumb-up-off-alt'}
+                        size={22}
+                        color={r.like === 'like' ? '#8FA89E' : '#555'}
+                      />
 
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.reviewImagesRow}>
-                  {r.images.map((img, idx) => (
-                    <Image key={idx} source={{ uri: img }} style={styles.reviewImage} />
-                  ))}
-                </ScrollView>
-              </View>
-            ))}
+                      <MaterialIcons
+                        name={r.like === 'dislike' ? 'thumb-down' : 'thumb-down-off-alt'}
+                        size={22}
+                        color={r.like === 'dislike' ? '#8FA89E' : '#555'}
+                        style={{ marginLeft: 10 }}
+                      />
+                    </View>
+                  </View>
+                  <Text style={styles.reviewText}>{r.text}</Text>
+
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.reviewImagesRow}>
+                    {(r.images || []).map((img, idx) => (
+                      <Image key={idx} source={{ uri: img }} style={styles.reviewImage} />
+                    ))}
+                  </ScrollView>
+                </TouchableOpacity>
+              ))}
           </ScrollView>
 
           <TouchableOpacity
@@ -105,7 +196,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     width: '100%',
-    height: '50%',
+
     backgroundColor: '#FFF0DE',
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
@@ -113,7 +204,7 @@ const styles = StyleSheet.create({
   },
 
   titleContainer: {
-    width: '60%',
+    width: '90%',
     marginBottom: 10,
     padding: 10,
   },
@@ -151,11 +242,13 @@ const styles = StyleSheet.create({
 
   // ⭐ 評論區
   reviewSection: {
-    marginTop: 20,
+    marginTop: 15,
     backgroundColor: '#fff',
-    borderRadius: 20,
+    borderRadius: 15,
     padding: 15,
   },
+
+
 
   reviewTitle: {
     fontSize: 16,
@@ -182,19 +275,28 @@ const styles = StyleSheet.create({
   },
 
   fixedBtn: {
-  position: 'absolute',
-  bottom: 20,
-  left: 20,
-  right: 20,
-  backgroundColor: '#8FA89E',
-  padding: 15,
-  borderRadius: 25,
-  alignItems: 'center',
-},
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    backgroundColor: '#8FA89E',
+    padding: 15,
+    borderRadius: 25,
+    alignItems: 'center',
+  },
 
-fixedBtnText: {
-  color: '#fff',
-  fontSize: 16,
-  fontWeight: 'bold',
-},
+  fixedBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+
+  likeIcon: {
+    position: 'absolute',
+    right: 10,
+    top: 10,
+    flexDirection: 'row',
+  },
+
+
 });
