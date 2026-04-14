@@ -31,7 +31,12 @@ export default function App() {
     longitudeDelta: 0.01,
 
   });
-
+const localTheme = {
+    bg: isDark ? '#333333' : '#FFF0DE',
+    searchBg: isDark ? '#444' : '#FFF',
+    searchText: isDark ? '#FFF0DE' : '#6B4F4F',
+    progressTrack: isDark ? '#555' : '#FFF0DE',
+  };//黃萱如家的
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
@@ -191,12 +196,16 @@ export default function App() {
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <View style={styles.container}>
+      {/* <View style={styles.container}> */}
+
+      <View style={[styles.container, { backgroundColor: localTheme.bg }]}> 
+        {/* 黃宣儒家的 */}
         <MapView
           ref={mapRef}
           style={styles.map}
           showsUserLocation={true}
           region={region}
+          customMapStyle={isDark ? darkMapStyle : []} // 黃宣儒
         >
           {location && (
             <Circle
@@ -227,7 +236,9 @@ export default function App() {
           pointerEvents="box-none"
         >
 
-          <View style={styles.searchBox}>
+          {/* <View style={styles.searchBox}> */}
+          <View style={[styles.searchBox, { backgroundColor: localTheme.searchBg }]}>
+            {/* // 黃宣儒 */}
             <TextInput
               placeholder="搜尋餐廳..."
               value={searchText}
@@ -312,7 +323,8 @@ export default function App() {
                   cx="90"
                   cy="90"
                   r="80"
-                  stroke="#FFF0DE"
+                  // stroke="#FFF0DE"
+                  stroke={localTheme.progressTrack} //黃宣儒
                   strokeWidth={10}
                   fill="none"
                 />
@@ -323,7 +335,8 @@ export default function App() {
                   r="80"
                   rotation="-90"
                   origin="90,90"
-                  stroke="#FFF0DE"
+                  // stroke="#FFF0DE"
+                  stroke={theme.activeBox || "#8FAE9D"} // 黃宣儒
                   strokeWidth={10}
                   fill="none"
                   strokeDasharray={2 * Math.PI * 80}
@@ -386,6 +399,7 @@ export default function App() {
             setFinalRestaurant(null);
             setSelectedRestaurant(null); // ⭐ 加這行
           }}
+
         />
       </View>
     </TouchableWithoutFeedback>
@@ -395,10 +409,19 @@ export default function App() {
   );
 }
 
+
+// 選入
+const darkMapStyle = [
+  { "elementType": "geometry", "stylers": [{ "color": "#242f3e" }] },
+  { "elementType": "labels.text.fill", "stylers": [{ "color": "#746855" }] },
+  { "elementType": "labels.text.stroke", "stylers": [{ "color": "#242f3e" }] }
+];
+
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    // backgroundColor: '#000',
   },
 
   map: {
