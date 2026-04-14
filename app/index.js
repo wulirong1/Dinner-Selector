@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from 'react';
 import MapView, { Marker, Circle } from 'react-native-maps';
 import Slider from '@react-native-community/slider';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
-import Card from './card';
+import Card from './Card';
 import { useContext } from 'react'; 
 import { ThemeContext } from './_layout'; // 黃
 
