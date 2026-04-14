@@ -6,18 +6,22 @@ import MapView, { Marker, Circle } from 'react-native-maps';
 import Slider from '@react-native-community/slider';
 import Svg, { Circle as SvgCircle } from 'react-native-svg';
 import Card from './card';
+import { useContext } from 'react'; 
+import { ThemeContext } from './_layout'; // 黃
 
 
 
 const AnimatedCircle = Animated.createAnimatedComponent(SvgCircle);
 export default function App() {
+  const { isDark, theme } = useContext(ThemeContext); // 黃
   const [finalRestaurant, setFinalRestaurant] = useState(null);
   const [location, setLocation] = useState(null);
-  const [restaurants, setRestaurants] = useState([null]);
+  const [restaurants, setRestaurants] = useState([]); // 黃
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [radius, setRadius] = useState(500); // 預設500m
   const [isPicking, setIsPicking] = useState(false);
-  const progress = useState(new Animated.Value(0))[0];
+  // const progress = useState(new Animated.Value(0))[0];
+  const progress = useRef(new Animated.Value(0)).current; //黃
   const [isHolding, setIsHolding] = useState(false);
   const scale = useState(new Animated.Value(1))[0];
   const mapRef = useRef(null);
@@ -36,7 +40,7 @@ const localTheme = {
     searchBg: isDark ? '#444' : '#FFF',
     searchText: isDark ? '#FFF0DE' : '#6B4F4F',
     progressTrack: isDark ? '#555' : '#FFF0DE',
-  };//黃萱如家的
+  };//黃
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
@@ -199,7 +203,7 @@ const localTheme = {
       {/* <View style={styles.container}> */}
 
       <View style={[styles.container, { backgroundColor: localTheme.bg }]}> 
-        {/* 黃宣儒家的 */}
+        {/* 黃 */}
         <MapView
           ref={mapRef}
           style={styles.map}
@@ -319,7 +323,7 @@ const localTheme = {
                 style={styles.progressSvg}
                 pointerEvents="box-none">
 
-                <Circle
+                <SvgCircle //黃宣儒
                   cx="90"
                   cy="90"
                   r="80"
